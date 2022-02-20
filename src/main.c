@@ -31,6 +31,7 @@ struct snake_t
 
 SDL_Window *window;
 SDL_Renderer *renderer;
+pos_t *apple;
 
 int board[TILE_NUMBER][TILE_NUMBER];
 
@@ -78,24 +79,24 @@ void presentScene()
 
 void growSnake(snake_t *snake)
 {
-    if (snake->head != NULL)
+    if (snake->tail != NULL)
     {
+        pos_t *tail = snake->tail;
         pos_t *new = calloc(1, sizeof(pos_t));
-        new->row = snake->head->row + snake->row_dir;
-        new->col = snake->head->col + snake->col_dir;
-        new->prev = NULL;
-        new->next = snake->head;
-        snake->head->prev = new;
-        snake->head = new;
+        new->row = tail->row;
+        new->col = tail->col;
+        new->next = NULL;
+        new->prev = tail;
+        tail->next = new;
+        snake->tail = new;
         snake->length++;
-
-        board[new->row][new->col] = 1;
-        printf("Length: %i\n", snake->length);
     }
 }
 
 void spawnApple()
 {
+    if (apple == NULL)
+        apple = calloc(1, sizeof(pos_t));
     int row;
     int col;
     do
@@ -104,6 +105,8 @@ void spawnApple()
         col = rand() % TILE_NUMBER;
     } while (board[row][col] == 1);
 
+    apple->row = row;
+    apple->col = col;
     board[row][col] = 2;
 }
 
@@ -158,6 +161,8 @@ int moveSnake(snake_t *snake)
             current->col = current->prev->col;
         }
     }
+
+    board[tail->row][tail->col] = 1;
 
     head->row += snake->row_dir;
     head->col += snake->col_dir;
@@ -286,7 +291,7 @@ int main(int argc, char *argv[])
 
         drawSnake();
         presentScene();
-        SDL_Delay(80);
+        SDL_Delay(300);
     }
 
     // Close and destroy the window
