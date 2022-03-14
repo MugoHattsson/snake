@@ -1,0 +1,1 @@
+int **hamiltonian(void);

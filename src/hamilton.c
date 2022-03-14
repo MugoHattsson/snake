@@ -3,36 +3,61 @@
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "main.h"
 
-#define LOG_TO_FILE
-// #undef LOG_TO_FILE
+// #define LOG_TO_FILE
 
-enum
-{
-    ARENA_ROWS = 30,
-    ARENA_COLS = 30,
-    ARENA_SIZE = ARENA_ROWS * ARENA_COLS
-};
+int ARENA_SIZE = ARENA_ROWS * ARENA_COLS;
 
-enum direction
-{
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-};
-
-typedef struct
+typedef struct node_t
 {
     int visited;
-    int canGoRight;
-    int canGoDown;
+    int can_go_right;
+    int can_go_down;
 } node_t;
 
 node_t nodes[ARENA_ROWS / 2][ARENA_COLS / 2];
-unsigned int tour[ARENA_ROWS][ARENA_COLS];
+int **tour;
 
-void explore(int fromRow, int fromCol, int row, int col)
+#ifdef LOG_TO_FILE
+void maze_to_file()
+{
+    FILE *f = fopen("maze.txt", "w+");
+    for (int r = 0; r < ARENA_ROWS / 2; r++)
+    {
+        fprintf(f, "#");
+        for (int c = 0; c < ARENA_COLS / 2; c++)
+        {
+            if (nodes[r][c].can_go_right && nodes[r][c].can_go_down)
+                fprintf(f, "+");
+            else if (nodes[r][c].can_go_right)
+                fprintf(f, "-");
+            else if (nodes[r][c].can_go_down)
+                fprintf(f, "|");
+            else
+                fprintf(f, " ");
+        }
+        fprintf(f, "#\n");
+    }
+    fclose(f);
+}
+
+void tour_to_file()
+{
+    FILE *f = fopen("tour.txt", "w+");
+    for (int row = 0; row < ARENA_ROWS; row++)
+    {
+        for (int col = 0; col < ARENA_COLS; col++)
+        {
+            fprintf(f, "%4d", tour[row][col]);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+#endif
+
+void generate_maze(int fromRow, int fromCol, int row, int col)
 {
     if (row < 0 || col < 0 || row >= ARENA_ROWS / 2 || col >= ARENA_COLS / 2)
         return;
@@ -45,13 +70,13 @@ void explore(int fromRow, int fromCol, int row, int col)
     if (fromRow != -1)
     {
         if (fromRow < row)
-            nodes[fromRow][fromCol].canGoDown = 1;
+            nodes[fromRow][fromCol].can_go_down = 1;
         else if (fromRow > row)
-            nodes[row][col].canGoDown = 1;
+            nodes[row][col].can_go_down = 1;
         else if (fromCol < col)
-            nodes[fromRow][fromCol].canGoRight = 1;
+            nodes[fromRow][fromCol].can_go_right = 1;
         else if (fromCol > col)
-            nodes[row][col].canGoRight = 1;
+            nodes[row][col].can_go_right = 1;
     }
 
     for (int i = 0; i < 1; i++)
@@ -60,147 +85,147 @@ void explore(int fromRow, int fromCol, int row, int col)
         switch (r)
         {
         case 0:
-            explore(row, col, row - 1, col);
+            generate_maze(row, col, row - 1, col);
             break;
         case 1:
-            explore(row, col, row + 1, col);
+            generate_maze(row, col, row + 1, col);
             break;
         case 2:
-            explore(row, col, row, col - 1);
+            generate_maze(row, col, row, col - 1);
             break;
         case 3:
-            explore(row, col, row, col + 1);
+            generate_maze(row, col, row, col + 1);
             break;
 
         default:
             break;
         }
     }
-    explore(row, col, row - 1, col);
-    explore(row, col, row + 1, col);
-    explore(row, col, row, col - 1);
-    explore(row, col, row, col + 1);
+    generate_maze(row, col, row - 1, col);
+    generate_maze(row, col, row + 1, col);
+    generate_maze(row, col, row, col - 1);
+    generate_maze(row, col, row, col + 1);
 }
 
-int canGoUp(int row, int col)
+int can_go_up(int row, int col)
 {
-    return row == 0 ? 0 : nodes[row - 1][col].canGoDown;
+    return row == 0 ? 0 : nodes[row - 1][col].can_go_down;
 }
 
-int canGoDown(int row, int col)
+int can_go_down(int row, int col)
 {
-    return nodes[row][col].canGoDown;
+    return nodes[row][col].can_go_down;
 }
 
-int canGoLeft(int row, int col)
+int can_go_left(int row, int col)
 {
-    return col == 0 ? 0 : nodes[row][col - 1].canGoRight;
+    return col == 0 ? 0 : nodes[row][col - 1].can_go_right;
 }
 
-int canGoRight(int row, int col)
+int can_go_right(int row, int col)
 {
-    return nodes[row][col].canGoRight;
+    return nodes[row][col].can_go_right;
 }
 
-enum direction findNextDir(int row, int col, enum direction dir)
+direction find_next_dir(int row, int col, direction dir)
 {
     switch (dir)
     {
     case UP:
-        if (canGoLeft(row, col))
+        if (can_go_left(row, col))
             return LEFT;
-        if (canGoUp(row, col))
+        if (can_go_up(row, col))
             return UP;
-        if (canGoRight(row, col))
+        if (can_go_right(row, col))
             return RIGHT;
         return DOWN;
         break;
     case DOWN:
-        if (canGoRight(row, col))
+        if (can_go_right(row, col))
             return RIGHT;
-        if (canGoDown(row, col))
+        if (can_go_down(row, col))
             return DOWN;
-        if (canGoLeft(row, col))
+        if (can_go_left(row, col))
             return LEFT;
         return UP;
         break;
     case LEFT:
-        if (canGoDown(row, col))
+        if (can_go_down(row, col))
             return DOWN;
-        if (canGoLeft(row, col))
+        if (can_go_left(row, col))
             return LEFT;
-        if (canGoUp(row, col))
+        if (can_go_up(row, col))
             return UP;
         return RIGHT;
         break;
     case RIGHT:
-        if (canGoUp(row, col))
+        if (can_go_up(row, col))
             return UP;
-        if (canGoRight(row, col))
+        if (can_go_right(row, col))
             return RIGHT;
-        if (canGoDown(row, col))
+        if (can_go_down(row, col))
             return DOWN;
         return LEFT;
         break;
     }
 }
 
-void setTourNumber(int row, int col, int number)
+void set_tour_number(int row, int col, int number)
 {
     if (tour[row][col] != 0)
         return;
     tour[row][col] = number;
 }
 
-void createTour()
+void create_tour()
 {
     int row = 0;
     int col = 0;
     int number = 1;
-    enum direction dir = nodes[row][col].canGoDown ? UP : LEFT;
-    enum direction nextDir;
+    direction dir = nodes[row][col].can_go_down ? UP : LEFT;
+    direction nextDir;
     do
     {
 
-        printf("%i, %i, %i, %i, %i\n", row, col, number, dir, nextDir);
-        nextDir = findNextDir(row, col, dir);
+        // printf("%i, %i, %i, %i, %i\n", row, col, number, dir, nextDir);
+        nextDir = find_next_dir(row, col, dir);
         switch (dir)
         {
         case UP:
-            setTourNumber(row * 2 + 1, col * 2, number++);
+            set_tour_number(row * 2 + 1, col * 2, number++);
             if (nextDir == dir || nextDir == RIGHT || nextDir == DOWN)
-                setTourNumber(row * 2, col * 2, number++);
+                set_tour_number(row * 2, col * 2, number++);
             if (nextDir == RIGHT || nextDir == DOWN)
-                setTourNumber(row * 2, col * 2 + 1, number++);
+                set_tour_number(row * 2, col * 2 + 1, number++);
             if (nextDir == DOWN)
-                setTourNumber(row * 2 + 1, col * 2 + 1, number++);
+                set_tour_number(row * 2 + 1, col * 2 + 1, number++);
             break;
         case DOWN:
-            setTourNumber(row * 2, col * 2 + 1, number++);
+            set_tour_number(row * 2, col * 2 + 1, number++);
             if (nextDir == dir || nextDir == LEFT || nextDir == UP)
-                setTourNumber(row * 2 + 1, col * 2 + 1, number++);
+                set_tour_number(row * 2 + 1, col * 2 + 1, number++);
             if (nextDir == LEFT || nextDir == UP)
-                setTourNumber(row * 2 + 1, col * 2, number++);
+                set_tour_number(row * 2 + 1, col * 2, number++);
             if (nextDir == UP)
-                setTourNumber(row * 2, col * 2, number++);
+                set_tour_number(row * 2, col * 2, number++);
             break;
         case LEFT:
-            setTourNumber(row * 2 + 1, col * 2 + 1, number++);
+            set_tour_number(row * 2 + 1, col * 2 + 1, number++);
             if (nextDir == dir || nextDir == UP || nextDir == RIGHT)
-                setTourNumber(row * 2 + 1, col * 2, number++);
+                set_tour_number(row * 2 + 1, col * 2, number++);
             if (nextDir == UP || nextDir == RIGHT)
-                setTourNumber(row * 2, col * 2, number++);
+                set_tour_number(row * 2, col * 2, number++);
             if (nextDir == RIGHT)
-                setTourNumber(row * 2, col * 2 + 1, number++);
+                set_tour_number(row * 2, col * 2 + 1, number++);
             break;
         case RIGHT:
-            setTourNumber(row * 2, col * 2, number++);
+            set_tour_number(row * 2, col * 2, number++);
             if (nextDir == dir || nextDir == DOWN || nextDir == LEFT)
-                setTourNumber(row * 2, col * 2 + 1, number++);
+                set_tour_number(row * 2, col * 2 + 1, number++);
             if (nextDir == DOWN || nextDir == LEFT)
-                setTourNumber(row * 2 + 1, col * 2 + 1, number++);
+                set_tour_number(row * 2 + 1, col * 2 + 1, number++);
             if (nextDir == LEFT)
-                setTourNumber(row * 2 + 1, col * 2, number++);
+                set_tour_number(row * 2 + 1, col * 2, number++);
             break;
         }
         dir = nextDir;
@@ -221,59 +246,29 @@ void createTour()
             break;
         }
 
-        printf("%i, %i, %i\n", row, col, number);
+        // printf("%i, %i, %i\n", row, col, number);
 
     } while (number <= ARENA_SIZE);
 }
 
-#ifdef LOG_TO_FILE
-void writeMazeToFile()
+int **hamiltonian(void)
 {
-    FILE *f = fopen("maze.txt", "w+");
-    for (int r = 0; r < ARENA_ROWS / 2; r++)
-    {
-        fprintf(f, "#");
-        for (int c = 0; c < ARENA_COLS / 2; c++)
-        {
-            if (nodes[r][c].canGoRight && nodes[r][c].canGoDown)
-                fprintf(f, "+");
-            else if (nodes[r][c].canGoRight)
-                fprintf(f, "-");
-            else if (nodes[r][c].canGoDown)
-                fprintf(f, "|");
-            else
-                fprintf(f, " ");
-        }
-        fprintf(f, "#\n");
-    }
-    fclose(f);
-}
-
-void writeTourToFile()
-{
-    FILE *f = fopen("tour.txt", "w+");
+    tour = calloc(1, ARENA_ROWS * sizeof(int *));
     for (int row = 0; row < ARENA_ROWS; row++)
     {
-        for (int col = 0; col < ARENA_COLS; col++)
-        {
-            fprintf(f, "%4d", tour[row][col]);
-        }
-        fprintf(f, "\n");
+        tour[row] = calloc(1, ARENA_COLS * sizeof(int));
     }
-    fclose(f);
-}
-#endif
+    // printf("%i", tour[0][1]);
 
-int main(void)
-{
     srand(time(0));
-    memset(&nodes, 0, sizeof(nodes));
-    memset(&tour, 0, sizeof(tour));
-    explore(-1, -1, 0, 0);
-    createTour();
+    // memset(&nodes, 0, sizeof(nodes));
+    generate_maze(-1, -1, 0, 0);
+    create_tour();
 
 #ifdef LOG_TO_FILE
-    writeMazeToFile();
-    writeTourToFile();
+    maze_to_file();
+    tour_to_file();
 #endif
+
+    return tour;
 }

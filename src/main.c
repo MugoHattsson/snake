@@ -3,11 +3,8 @@
 #include <time.h>
 #include <assert.h>
 #include <unistd.h>
-
-#define SCREEN_WIDTH 900
-#define SCREEN_HEIGHT 900
-#define TILE_NUMBER 30
-#define TILE_SIZE 30
+#include "main.h"
+#include "hamilton.h"
 
 typedef struct pos_t pos_t;
 typedef struct snake_t snake_t;
@@ -33,51 +30,51 @@ SDL_Window *window;
 SDL_Renderer *renderer;
 pos_t *apple;
 
-int board[TILE_NUMBER][TILE_NUMBER];
+int board[ARENA_ROWS][ARENA_COLS];
 
-void prepareScene()
+void prepare_scene()
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 }
 
-void drawTile(int row, int col)
+void draw_tile(int row, int col)
 {
-    assert(row < TILE_NUMBER && col < TILE_NUMBER);
+    assert(row < ARENA_ROWS && col < ARENA_COLS);
     SDL_Rect rect;
-    rect.h = TILE_SIZE;
-    rect.w = TILE_SIZE;
-    rect.x = col * TILE_SIZE;
-    rect.y = row * TILE_SIZE;
+    rect.h = TILE_SIZE - 2;
+    rect.w = TILE_SIZE - 2;
+    rect.x = col * TILE_SIZE + 1;
+    rect.y = row * TILE_SIZE + 1;
     SDL_RenderFillRect(renderer, &rect);
 }
 
-void drawSnake()
+void draw_snake()
 {
-    for (int i = 0; i < TILE_NUMBER; i++)
+    for (int i = 0; i < ARENA_ROWS; i++)
     {
-        for (int j = 0; j < TILE_NUMBER; j++)
+        for (int j = 0; j < ARENA_COLS; j++)
         {
             if (board[i][j] == 1)
             {
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 1);
-                drawTile(i, j);
+                draw_tile(i, j);
             }
             else if (board[i][j] == 2)
             {
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 1);
-                drawTile(i, j);
+                draw_tile(i, j);
             }
         }
     }
 }
 
-void presentScene()
+void present_scene()
 {
     SDL_RenderPresent(renderer);
 }
 
-void growSnake(snake_t *snake)
+void grow_snake(snake_t *snake)
 {
     if (snake->tail != NULL)
     {
@@ -93,7 +90,7 @@ void growSnake(snake_t *snake)
     }
 }
 
-void spawnApple()
+void spawn_apple()
 {
     if (apple == NULL)
         apple = calloc(1, sizeof(pos_t));
@@ -101,21 +98,32 @@ void spawnApple()
     int col;
     do
     {
-        row = rand() % TILE_NUMBER;
-        col = rand() % TILE_NUMBER;
-    } while (board[row][col] == 1);
+        row = rand() % ARENA_ROWS;
+        col = rand() % ARENA_COLS;
+    } while (board[row][col] != 0);
 
     apple->row = row;
     apple->col = col;
     board[row][col] = 2;
+    printf("Next apple: %i, %i\n", row, col);
 }
 
-snake_t *initSnake()
+int find_apple()
+{
+    for (int i = 0; i < ARENA_ROWS; i++)
+        for (int j = 0; j < ARENA_COLS; j++)
+            if (board[i][j] == 2)
+                return 1;
+
+    return 0;
+}
+
+snake_t *init_snake()
 {
     snake_t *snake = calloc(1, sizeof(snake_t));
     pos_t *head = calloc(1, sizeof(pos_t));
-    head->row = 15;
-    head->col = 10;
+    head->row = ARENA_ROWS / 2;
+    head->col = ARENA_COLS / 2;
     head->next = NULL;
     head->prev = NULL;
     snake->head = head;
@@ -126,13 +134,13 @@ snake_t *initSnake()
 
     board[head->row][head->col] = 1;
 
-    growSnake(snake);
-    growSnake(snake);
+    for (int i = 0; i < 5; i++)
+        grow_snake(snake);
 
     return snake;
 }
 
-int moveSnake(snake_t *snake)
+int move_snake(snake_t *snake)
 {
 
     pos_t *head = snake->head;
@@ -140,14 +148,14 @@ int moveSnake(snake_t *snake)
 
     if ((head->row == 0 && snake->row_dir == -1) ||
         (head->col == 0 && snake->col_dir == -1) ||
-        (head->row == TILE_NUMBER - 1 && snake->row_dir == 1) ||
-        (head->col == TILE_NUMBER - 1 && snake->col_dir == 1))
+        (head->row == ARENA_ROWS - 1 && snake->row_dir == 1) ||
+        (head->col == ARENA_COLS - 1 && snake->col_dir == 1))
     {
         return 0;
     }
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    drawTile(tail->row, tail->col);
+    draw_tile(tail->row, tail->col);
     board[tail->row][tail->col] = 0;
     tail->row = tail->prev->row;
     tail->col = tail->prev->col;
@@ -168,10 +176,10 @@ int moveSnake(snake_t *snake)
     head->col += snake->col_dir;
     if (board[head->row][head->col] == 2)
     {
-        growSnake(snake);
-        spawnApple();
+        grow_snake(snake);
+        spawn_apple();
     }
-    else if (board[head->row][head->col] == 1)
+    if (board[head->row][head->col] == 1)
     {
         return 0;
     }
@@ -180,7 +188,7 @@ int moveSnake(snake_t *snake)
     return 1;
 }
 
-int handleInput(snake_t *snake)
+int handle_input(snake_t *snake)
 {
 
     float time = 0.1;
@@ -244,8 +252,76 @@ int handleInput(snake_t *snake)
     return 1;
 }
 
+direction next_snake_direction(snake_t *snake, int **tour)
+{
+    int row = snake->head->row;
+    int col = snake->head->col;
+    int next_tour_num = tour[row][col] == ARENA_ROWS * ARENA_COLS ? 1 : tour[row][col] + 1;
+
+    if (col != ARENA_COLS - 1 && tour[row][col + 1] == next_tour_num)
+        return RIGHT;
+    if (col != 0 && tour[row][col - 1] == next_tour_num)
+        return LEFT;
+    if (row != ARENA_ROWS - 1 && tour[row + 1][col] == next_tour_num)
+        return DOWN;
+    if (row != 0 && tour[row - 1][col] == next_tour_num)
+        return UP;
+}
+
+void guide_snake(snake_t *snake, int **tour)
+{
+    pos_t *head = snake->head;
+    direction next_dir = next_snake_direction(snake, tour);
+
+    switch (next_dir)
+    {
+    case UP:
+        snake->row_dir = -1;
+        snake->col_dir = 0;
+        break;
+    case DOWN:
+        snake->row_dir = 1;
+        snake->col_dir = 0;
+        break;
+    case RIGHT:
+        snake->row_dir = 0;
+        snake->col_dir = 1;
+        break;
+    case LEFT:
+        snake->row_dir = 0;
+        snake->col_dir = -1;
+        break;
+    }
+}
+
+void print_board()
+{
+    for (int i = 0; i < ARENA_ROWS; i++)
+    {
+        for (int j = 0; j < ARENA_COLS; j++)
+        {
+            printf("%i ", board[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+int has_won(snake_t *snake)
+{
+    if (snake->length == ARENA_COLS * ARENA_ROWS)
+    {
+        printf("You Win!\n");
+        return 1;
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
+    int **tour = hamiltonian();
+    // printf("%i", tour[0][0]);
 
     SDL_Init(SDL_INIT_VIDEO); // Initialize SDL2
 
@@ -278,20 +354,22 @@ int main(int argc, char *argv[])
 
     memset(&board, 0, sizeof(board));
 
-    snake_t *snake = initSnake();
+    snake_t *snake = init_snake();
     srand(time(0));
-    spawnApple();
+    spawn_apple();
 
-    prepareScene();
     int running = 1;
-    while (running)
+    while (running && !has_won(snake))
     {
-        running = handleInput(snake);
-        running &= moveSnake(snake);
+        prepare_scene();
+        running = handle_input(snake);
+        guide_snake(snake, tour);
+        running &= move_snake(snake);
+        print_board();
 
-        drawSnake();
-        presentScene();
-        SDL_Delay(300);
+        draw_snake();
+        present_scene();
+        SDL_Delay(200);
     }
 
     // Close and destroy the window
