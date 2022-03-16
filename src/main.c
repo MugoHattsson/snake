@@ -1,238 +1,15 @@
-#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include "main.h"
 #include "hamilton.h"
+#include "graphics.h"
 
-typedef struct pos_t pos_t;
-
-typedef enum shape
-{
-    HORISONTAL,
-    VERTICAL,
-    UP_LEFT,
-    UP_RIGHT,
-    DOWN_LEFT,
-    DOWN_RIGHT
-} shape;
-
-struct pos_t
-{
-    pos_t *next;
-    pos_t *prev;
-    direction dir;
-    int row;
-    int col;
-};
-
-typedef struct snake_t
-{
-    pos_t *head;
-    pos_t *tail;
-    direction dir;
-    int length;
-} snake_t;
-
-SDL_Window *window;
-SDL_Renderer *renderer;
 pos_t *apple;
 
 int board[ARENA_ROWS][ARENA_COLS];
-
-void prepare_scene()
-{
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-}
-
-void draw_tile(int row, int col)
-{
-    assert(row < ARENA_ROWS && col < ARENA_COLS);
-    SDL_Rect rect;
-    rect.h = TILE_SIZE - 2;
-    rect.w = TILE_SIZE - 2;
-    rect.x = col * TILE_SIZE + 1;
-    rect.y = row * TILE_SIZE + 1;
-    SDL_RenderFillRect(renderer, &rect);
-}
-
-void draw_shape(shape shape, int row, int col)
-{
-    SDL_Rect rect;
-    SDL_Rect aux;
-
-    int gap = 4;
-    int half_gap = gap / 2;
-
-    switch (shape)
-    {
-    case HORISONTAL:
-        rect.w = TILE_SIZE;
-        rect.h = TILE_SIZE - gap;
-        rect.x = col * TILE_SIZE;
-        rect.y = row * TILE_SIZE + half_gap;
-        SDL_RenderFillRect(renderer, &rect);
-        break;
-
-    case VERTICAL:
-        rect.w = TILE_SIZE - gap;
-        rect.h = TILE_SIZE;
-        rect.x = col * TILE_SIZE + half_gap;
-        rect.y = row * TILE_SIZE;
-        SDL_RenderFillRect(renderer, &rect);
-        break;
-
-    case UP_LEFT:
-        rect.w = TILE_SIZE - gap;
-        rect.h = TILE_SIZE - half_gap;
-        rect.x = col * TILE_SIZE + half_gap;
-        rect.y = row * TILE_SIZE;
-
-        aux.w = half_gap;
-        aux.h = TILE_SIZE - gap;
-        aux.x = col * TILE_SIZE;
-        aux.y = row * TILE_SIZE + half_gap;
-
-        SDL_RenderFillRect(renderer, &rect);
-        SDL_RenderFillRect(renderer, &aux);
-        break;
-
-    case UP_RIGHT:
-        rect.w = TILE_SIZE - gap;
-        rect.h = TILE_SIZE - half_gap;
-        rect.x = col * TILE_SIZE + half_gap;
-        rect.y = row * TILE_SIZE;
-
-        aux.w = half_gap;
-        aux.h = TILE_SIZE - gap;
-        aux.x = col * TILE_SIZE + TILE_SIZE - half_gap;
-        aux.y = row * TILE_SIZE + half_gap;
-        SDL_RenderFillRect(renderer, &rect);
-        SDL_RenderFillRect(renderer, &aux);
-        break;
-
-    case DOWN_LEFT:
-        rect.w = TILE_SIZE - gap;
-        rect.h = TILE_SIZE - half_gap;
-        rect.x = col * TILE_SIZE + half_gap;
-        rect.y = row * TILE_SIZE + half_gap;
-
-        aux.w = half_gap;
-        aux.h = TILE_SIZE - gap;
-        aux.x = col * TILE_SIZE;
-        aux.y = row * TILE_SIZE + half_gap;
-
-        SDL_RenderFillRect(renderer, &rect);
-        SDL_RenderFillRect(renderer, &aux);
-        break;
-
-    case DOWN_RIGHT:
-        rect.w = TILE_SIZE - gap;
-        rect.h = TILE_SIZE - half_gap;
-        rect.x = col * TILE_SIZE + half_gap;
-        rect.y = row * TILE_SIZE + half_gap;
-
-        aux.w = half_gap;
-        aux.h = TILE_SIZE - gap;
-        aux.x = col * TILE_SIZE + TILE_SIZE - half_gap;
-        aux.y = row * TILE_SIZE + half_gap;
-        SDL_RenderFillRect(renderer, &rect);
-        SDL_RenderFillRect(renderer, &aux);
-        break;
-
-    default:
-        break;
-    }
-}
-
-shape next_shape(pos_t *next, pos_t *cur)
-{
-    if (next->dir == cur->dir)
-        if (next->dir == UP || next->dir == DOWN)
-            return VERTICAL;
-        else
-            return HORISONTAL;
-
-    switch (cur->dir)
-    {
-    case UP:
-        switch (next->dir)
-        {
-        case UP:
-            return VERTICAL;
-        case RIGHT:
-            return DOWN_RIGHT;
-        case LEFT:
-            return DOWN_LEFT;
-        }
-    case RIGHT:
-        switch (next->dir)
-        {
-        case UP:
-            return UP_LEFT;
-        case RIGHT:
-            return HORISONTAL;
-        case DOWN:
-            return DOWN_LEFT;
-        }
-    case DOWN:
-        switch (next->dir)
-        {
-        case LEFT:
-            return UP_LEFT;
-        case RIGHT:
-            return UP_RIGHT;
-        case DOWN:
-            return VERTICAL;
-        }
-    case LEFT:
-        switch (next->dir)
-        {
-        case UP:
-            return UP_RIGHT;
-        case LEFT:
-            return HORISONTAL;
-        case DOWN:
-            return DOWN_RIGHT;
-        }
-    }
-}
-
-void draw_apple()
-{
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    draw_tile(apple->row, apple->col);
-}
-
-void draw_snake(snake_t *snake)
-{
-    pos_t *current = snake->head;
-    pos_t *prev = current;
-    shape shape = next_shape(prev, current);
-
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    draw_shape(shape, current->row, current->col);
-
-    while ((current = current->next) != NULL)
-    {
-        shape = next_shape(prev, current);
-        draw_shape(shape, prev->row, prev->col);
-        prev = current;
-    }
-}
-
-void draw_game(snake_t *snake)
-{
-    draw_apple();
-    draw_snake(snake);
-}
-
-void present_scene()
-{
-    SDL_RenderPresent(renderer);
-}
 
 void grow_snake(snake_t *snake)
 {
@@ -368,58 +145,6 @@ int move_snake(snake_t *snake)
     return 1;
 }
 
-int handle_input(snake_t *snake)
-{
-
-    float time = 0.1;
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        switch (event.type)
-        {
-        case SDL_QUIT:
-            return 0;
-            break;
-
-        case SDL_KEYDOWN:
-            switch (event.key.keysym.sym)
-            {
-            case SDLK_ESCAPE:
-                return 0;
-                break;
-
-            case SDLK_w:
-                if (snake->dir != DOWN)
-                    snake->dir = UP;
-                break;
-
-            case SDLK_s:
-                if (snake->dir != UP)
-                    snake->dir = DOWN;
-                break;
-
-            case SDLK_a:
-                if (snake->dir != RIGHT)
-                    snake->dir = LEFT;
-                break;
-
-            case SDLK_d:
-                if (snake->dir != LEFT)
-                    snake->dir = RIGHT;
-                break;
-
-            default:
-                break;
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-    return 1;
-}
-
 direction next_snake_direction(snake_t *snake, int **tour)
 {
     int row = snake->head->row;
@@ -488,38 +213,9 @@ int has_won(snake_t *snake)
 
 int main(int argc, char *argv[])
 {
+    if (!init_graphics())
+        return 1;
     int **tour = hamiltonian();
-
-    SDL_Init(SDL_INIT_VIDEO); // Initialize SDL2
-
-    // Create an application window with the following settings:
-    window = SDL_CreateWindow(
-        "Snaek",                 // window title
-        SDL_WINDOWPOS_UNDEFINED, // initial x position
-        SDL_WINDOWPOS_UNDEFINED, // initial y position
-        SCREEN_WIDTH,            // width, in pixels
-        SCREEN_HEIGHT,           // height, in pixels
-        SDL_WINDOW_OPENGL        // flags - see below
-    );
-
-    // Check that the window was successfully created
-    if (window == NULL)
-    {
-        // In the case that the window could not be made...
-        printf("Could not create window: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    // The window is open: could enter program loop here (see SDL_PollEvent())
-
-    renderer = SDL_CreateRenderer(window, -1, 0);
-    if (!renderer)
-    {
-        printf("Failed to create renderer: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    memset(&board, 0, sizeof(board));
 
     snake_t *snake = init_snake();
     srand(time(0));
@@ -529,20 +225,17 @@ int main(int argc, char *argv[])
     while (running && !has_won(snake))
     {
         prepare_scene();
-        running = handle_input(snake);
+        running = handle_input();
         guide_snake(snake, tour);
         running &= move_snake(snake);
 
-        draw_game(snake);
+        draw_game(snake, apple);
         present_scene();
-        SDL_Delay(80);
+        wait(80);
     }
 
-    // Close and destroy the window
-    SDL_DestroyWindow(window);
+    terminate_graphics();
 
-    // Clean up
-    SDL_Quit();
     printf("Thanks for playing!\n");
     return 0;
 }

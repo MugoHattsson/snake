@@ -23,3 +23,22 @@ typedef enum
     LEFT,
     RIGHT
 } direction;
+
+typedef struct pos_t pos_t;
+
+struct pos_t
+{
+    pos_t *next;
+    pos_t *prev;
+    direction dir;
+    int row;
+    int col;
+};
+
+typedef struct snake_t
+{
+    pos_t *head;
+    pos_t *tail;
+    direction dir;
+    int length;
+} snake_t;
