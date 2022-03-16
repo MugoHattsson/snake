@@ -211,6 +211,24 @@ int has_won(snake_t *snake)
     return 0;
 }
 
+void free_snake(snake_t *snake)
+{
+    pos_t *current = snake->head;
+
+    while ((current = current->next) != NULL)
+    {
+        free(current->prev);
+    }
+    free(snake->tail);
+    free(snake);
+}
+
+void cleanup(snake_t *snake)
+{
+    free(apple);
+    free_snake(snake);
+}
+
 int main(int argc, char *argv[])
 {
     if (!init_graphics())
@@ -231,8 +249,10 @@ int main(int argc, char *argv[])
 
         draw_game(snake, apple);
         present_scene();
-        wait(80);
+        wait(30);
     }
+
+    cleanup(snake);
 
     terminate_graphics();
 
