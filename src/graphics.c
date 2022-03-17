@@ -194,6 +194,9 @@ void draw_snake(snake_t *snake)
         draw_shape(shape, prev->row, prev->col);
         prev = current;
     }
+
+    shape = next_shape(prev, prev);
+    draw_shape(shape, prev->row, prev->col);
 }
 
 void draw_game(snake_t *snake, pos_t *apple)
