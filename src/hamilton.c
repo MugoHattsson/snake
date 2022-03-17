@@ -5,9 +5,7 @@
 #include <assert.h>
 #include "main.h"
 
-// #define LOG_TO_FILE
-
-int ARENA_SIZE = ARENA_ROWS * ARENA_COLS;
+#define LOG_TO_FILE
 
 typedef struct node_t
 {
@@ -186,8 +184,6 @@ void create_tour()
     direction nextDir;
     do
     {
-
-        // printf("%i, %i, %i, %i, %i\n", row, col, number, dir, nextDir);
         nextDir = find_next_dir(row, col, dir);
         switch (dir)
         {
@@ -246,8 +242,6 @@ void create_tour()
             break;
         }
 
-        // printf("%i, %i, %i\n", row, col, number);
-
     } while (number <= ARENA_SIZE);
 }
 
@@ -258,10 +252,8 @@ int **hamiltonian(void)
     {
         tour[row] = calloc(1, ARENA_COLS * sizeof(int));
     }
-    // printf("%i", tour[0][1]);
 
     srand(time(0));
-    // memset(&nodes, 0, sizeof(nodes));
     generate_maze(-1, -1, 0, 0);
     create_tour();
 
